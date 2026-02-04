@@ -1,7 +1,7 @@
 ---
 title: "Tema 1 — Introducción al Tratamiento de Datos (ejemplos con R base)"
 subtitle: "Tratamiento de Datos · Grado en Ciencia de Datos (UV)"
-author: "Yu Jing Zhou"
+author: ""
 date:  "`r Sys.Date()`"
 params:
   lang: ES
