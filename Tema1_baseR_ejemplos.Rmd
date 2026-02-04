@@ -1,0 +1,307 @@
+---
+title: "Tema 1 — Introducción al Tratamiento de Datos (ejemplos con R base)"
+subtitle: "Tratamiento de Datos · Grado en Ciencia de Datos (UV)"
+author: "Marcelino Martínez"
+date:  "`r Sys.Date()`"
+params:
+  lang: ES
+lang: "`r switch(params$lang, ES = 'es-ES', EN = 'en-US')`"
+output:
+  bookdown::html_document2:
+    echo: true
+    number_sections: false
+    theme: spacelab
+    toc: true
+  bookdown::pdf_document2:
+    toc: true
+    toc_depth: 3
+    number_sections: false
+always_allow_html: true
+language:
+  label:
+    fig: 'Figura '
+    tab: 'Tabla '
+---
+
+```{r setup, cache=FALSE, echo=FALSE, message=FALSE, warning=FALSE}
+# -----------------------------------------------------------------------------
+# CONFIGURACIÓN GENERAL (solo knitr; los ejemplos usan exclusivamente R base)
+# -----------------------------------------------------------------------------
+library(knitr)
+options(width = 100)
+
+opts_chunk$set(
+  echo = TRUE, message = FALSE, warning = FALSE, comment = NA,
+  fig.align = 'center', dpi = 120
+)
+```
+
+# 1. Introducción al Tratamiento de Datos
+
+Este documento acompaña al **Tema 1** (PDF de teoría) con ejemplos **exclusivamente en R base**
+(sin tidyverse, sin paquetes externos) para ilustrar:
+
+- Por qué analizamos datos.
+- Visión global de un problema de tratamiento de datos.
+- Primeros pasos con un dataset.
+- Caracterización: estadísticos, valores perdidos/anómalos, transformaciones.
+- Idea de **codebook (metadata)**.
+- Las **4R** del Análisis Exploratorio (Tukey): *Residuos, Reexpresión, Resistencia, Revelación*.
+
+> Nota: La visualización “avanzada” se verá más adelante; aquí usamos `plot()`, `hist()`, `boxplot()` y `pairs()`.
+
+# 1.1 ¿Por qué analizar datos?
+
+Un análisis de datos sirve para **comprender**, **predecir** y **tomar decisiones** con evidencia.
+
+```{r}
+# Ejemplo mínimo: una serie de medidas (p. ej., tiempos de reacción en ms)
+x <- c(210, 205, 198, 220, 215, 400)  # ojo: 400 podría ser un valor atípico
+mean(x)     # promedio
+median(x)   # mediana (más resistente a outliers)
+```
+
+Interpretación rápida:
+- La **media** se “tira” hacia 400.
+- La **mediana** es más estable si hay valores extremos.
+
+# 1.2 Visión global de un problema de Tratamiento de Datos
+
+En un problema real, típicamente iteramos por etapas:
+
+1. **Definir el problema** (preguntas, contexto).
+2. **Recopilar/obtener datos** (fuentes, formato, volumen).
+3. **Limpieza y preprocesamiento** (missing, errores, duplicados).
+4. **EDA** (estadística descriptiva + visualización + patrones).
+5. **Modelado** (si procede) y **comunicación** (tablas/gráficos/informe).
+
+## 1.2.1 Simulación de un “raw dataset” y su paso a “technically correct”
+
+```{r}
+raw <- data.frame(
+  id = c("001", "002", "003", "003"),       # duplicado
+  edad = c("19", "20", "-5", "21"),         # edad negativa (inconsistente)
+  sexo = c("M", "F", "X", "F"),             # categoría inesperada (X)
+  peso = c("72.4", "NA", "68.1", "70.2"),   # "NA" como texto
+  stringsAsFactors = FALSE
+)
+raw
+str(raw)
+```
+
+**Technically correct**: tipos correctos (numéricos donde toca), NA reales, etc.
+
+```{r}
+tc <- raw
+tc$edad <- as.integer(tc$edad)
+tc$peso <- as.numeric(tc$peso)  # convierte "NA" a NA real
+tc
+str(tc)
+```
+
+## 1.2.2 “Consistent data”: reglas básicas de consistencia
+
+Definimos reglas mínimas (ejemplo didáctico):
+- `edad` debe ser >= 0
+- `sexo` debe ser {M,F}
+- `id` no debe repetirse
+
+```{r}
+# Detección de problemas
+which(tc$edad < 0)
+setdiff(unique(tc$sexo), c("M", "F"))
+duplicated(tc$id)
+
+# Filtrado "rápido" (ejemplo): eliminamos registros inconsistentes o duplicados
+consistent <- tc[tc$edad >= 0 & tc$sexo %in% c("M","F") & !duplicated(tc$id), ]
+consistent
+```
+
+# 2. Primeros pasos cuando analizas un conjunto de datos
+
+El Tema 1 propone comprobar rápidamente:
+
+1. Nº de registros (filas), 2. Nº de variables (columnas), 3. Tipos,
+4. valores perdidos, 5. variables esperadas, 6. valores consistentes,
+7. relaciones razonables.
+
+Usaremos `airquality` (incluido con R) porque tiene **valores perdidos**.
+
+```{r}
+data(airquality)  # dataset base
+dim(airquality)   # (filas, columnas)
+names(airquality)
+str(airquality)
+```
+
+## 2.1 Valores perdidos (missing values)
+
+```{r}
+colSums(is.na(airquality))   # nº de NA por variable
+sum(!complete.cases(airquality))  # nº de filas con al menos un NA
+
+# Ejemplo de estrategias "base":
+aq_complete <- na.omit(airquality)          # eliminar filas con NA
+aq_impute   <- airquality
+aq_impute$Ozone[is.na(aq_impute$Ozone)] <- median(aq_impute$Ozone, na.rm = TRUE)  # imputación simple
+```
+
+# 3. Caracterización de los datos
+
+## 3.1 Estadísticos descriptivos (media, mediana, varianza, desviación típica)
+
+```{r}
+summary(airquality)  # resumen rápido
+mean(airquality$Temp, na.rm = TRUE)
+var(airquality$Temp, na.rm = TRUE)
+sd(airquality$Temp, na.rm = TRUE)
+
+# "5-number summary" (min, Q1, mediana, Q3, max)
+fivenum(airquality$Temp)
+```
+
+## 3.2 Análisis visual (R base)
+
+```{r}
+hist(airquality$Temp, main="Histograma de Temp", xlab="Temp (F)")
+boxplot(airquality$Ozone, main="Boxplot de Ozone (con NA)", ylab="Ozone")
+
+# Relaciones bivariantes
+plot(airquality$Wind, airquality$Ozone,
+     xlab="Wind", ylab="Ozone", main="Ozone vs Wind")
+```
+
+## 3.3 Datos inusuales / anómalos / perdidos
+
+Una detección simple de outliers usa el IQR (rango intercuartílico).
+
+```{r}
+oz <- airquality$Ozone
+q <- quantile(oz, probs=c(0.25, 0.75), na.rm=TRUE)
+iqr <- q[2] - q[1]
+lim_inf <- q[1] - 1.5*iqr
+lim_sup <- q[2] + 1.5*iqr
+
+which(oz < lim_inf | oz > lim_sup)  # índices candidatos a outlier (con NA no pasa nada)
+c(lim_inf=lim_inf, lim_sup=lim_sup)
+```
+
+# 4. Codebook (metadata): idea y ejemplo mínimo
+
+Un **codebook** describe el dataset y cada variable (definición, unidades, rango, códigos de missing...).
+
+Ejemplo didáctico (mini-codebook en R):
+
+```{r}
+codebook <- data.frame(
+  variable = c("Ozone", "Solar.R", "Wind", "Temp", "Month", "Day"),
+  tipo     = c("num", "num", "num", "num", "int", "int"),
+  unidad   = c("ppb", "Ly", "mph", "F", "mes", "día"),
+  rango    = c("0..~200", "0..~350", "0..~25", "50..100", "5..9", "1..31"),
+  missing  = c("NA", "NA", "NA", "NA", "NA", "NA"),
+  stringsAsFactors = FALSE
+)
+kable(codebook)
+```
+
+# 5. Las 4R del Análisis Exploratorio (Tukey) con ejemplos en R base
+
+## 5.1 Residuos: lo que el modelo no explica
+
+Ajustamos un modelo lineal simple y analizamos residuos.
+
+```{r}
+data(mtcars)  # dataset base
+fit <- lm(mpg ~ wt, data = mtcars)
+
+# Señal observada vs estimada
+plot(mtcars$wt, mtcars$mpg, xlab="wt", ylab="mpg", main="mpg ~ wt (observado y estimado)")
+abline(fit)
+
+# Residuos
+res <- residuals(fit)
+summary(res)
+```
+
+Visualizamos residuos (deberían oscilar alrededor de 0 sin patrón claro si el modelo es razonable).
+
+```{r}
+plot(fitted(fit), res, xlab="mpg estimado", ylab="residuos", main="Residuos vs estimado")
+abline(h=0, lty=2)
+
+hist(res, main="Histograma de residuos", xlab="residuo")
+qqnorm(res); qqline(res)
+```
+
+## 5.2 Reexpresión: transformaciones para revelar estructura
+
+Cuando una variable es muy sesgada, una transformación (p. ej. `log`) puede ayudar.
+
+```{r}
+# Ejemplo: relación no lineal simple
+y <- mtcars$mpg
+x <- mtcars$wt
+library(MASS)
+
+# Transformación log (solo como ejemplo: no siempre procede)
+hist(mammals$brain,breaks = 10,main="Histograma `brain` (original)")
+hist(log10(mammals$brain),breaks = 10,main="Histograma `log(brain)` (transformado)")
+
+library(MASS)
+data(mammals)
+
+# Transformación logarítmica
+mammals$log_body <- log(mammals$body)
+mammals$log_brain <- log(mammals$brain)
+
+# Visualización
+par(mfrow=c(1,2))
+plot(body ~ brain, data=mammals, main="Escala original")
+plot(log_body ~ log_brain, data=mammals, main="Escala logarítmica")
+```
+
+## 5.3 Resistencia: medidas poco sensibles a outliers
+
+Comparación de media vs mediana; ejemplo con un outlier artificial.
+
+```{r}
+z <- c(10, 11, 9, 10, 10, 200)   # 200 es outlier
+mean(z)
+median(z)
+
+# Media recortada (trim) en R base
+mean(z, trim = 0.2)
+```
+
+## 5.4 Revelación: visualizar para “ver” patrones
+
+Ejemplo: matriz de dispersión `pairs()` y boxplots por grupos (iris está en R base).
+
+```{r}
+data(iris)
+
+pairs(iris[1:4], main="Iris: matriz de dispersión (R base)")
+
+boxplot(Sepal.Length ~ Species, data=iris, main="Sepal.Length por especie", ylab="Sepal.Length")
+```
+
+# 6. Fuentes de datos y cómo importarlas (sin paquetes)
+
+Ejemplo de importación “clásica” con `read.csv()`:
+- Desde fichero local: `read.csv("mis_datos.csv")`
+- Desde URL (si la red lo permite): `read.csv("https://.../archivo.csv")`
+
+Aquí creamos un CSV temporal para simular el flujo completo:
+
+```{r}
+tmp <- tempfile(fileext = ".csv")
+write.csv(head(airquality, 10), tmp, row.names = FALSE)
+
+d <- read.csv(tmp)
+head(d)
+str(d)
+```
+
+# Bibliografía (del Tema 1)
+
+- Pearson, R. K. *Exploratory Data Analysis Using R*. Chapman & Hall/CRC (2018).
