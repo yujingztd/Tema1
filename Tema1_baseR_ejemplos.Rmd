@@ -1,21 +1,21 @@
 ---
 title: "Tema 1 — Introducción al Tratamiento de Datos (ejemplos con R base)"
 subtitle: "Tratamiento de Datos · Grado en Ciencia de Datos (UV)"
-author: "Marcelino Martínez"
+author: "Yu Jing Zhou"
 date:  "`r Sys.Date()`"
 params:
   lang: ES
 lang: "`r switch(params$lang, ES = 'es-ES', EN = 'en-US')`"
 output:
+  bookdown::pdf_document2:
+    toc: true
+    toc_depth: 3
+    number_sections: false
   bookdown::html_document2:
     echo: true
     number_sections: false
     theme: spacelab
     toc: true
-  bookdown::pdf_document2:
-    toc: true
-    toc_depth: 3
-    number_sections: false
 always_allow_html: true
 language:
   label:
